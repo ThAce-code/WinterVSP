@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 中国结 - 手动轮切展示</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a0505; /* 深红色背景 */
+            font-family: 'SimHei', 'Microsoft YaHei', sans-serif;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffaa00;
+            font-size: 24px;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+        .ui-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #ffd700;
+            pointer-events: none; /* 让鼠标事件穿透容器 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-btn {
+            background: rgba(139, 0, 0, 0.7);
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 10px 25px;
+            border-radius: 50px;
+            pointer-events: auto; /* 恢复按钮的点击事件 */
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            font-weight: bold;
+        }
+        .nav-btn:hover {
+            background: rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 15px #ffd700;
+            transform: scale(1.1);
+        }
+        .nav-btn:active {
+            transform: scale(0.95);
+        }
+        .hint-text {
+            font-size: 14px;
+            opacity: 0.8;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+        .title {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 32px;
+            color: #ff3333;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ffaa00, 0 0 20px #ff0000;
+            letter-spacing: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading">正在编织中国结阵列...</div>
+    <div class="title">祥瑞轮转</div>
+    <div id="canvas-container"></div>
+    
+    <div class="ui-controls">
+        <button id="prevBtn" class="nav-btn">❮</button>
+        <span class="hint-text">使用按钮或方向键切换 | 拖动调整视角</span>
+        <button id="nextBtn" class="nav-btn">❯</button>
+    </div>
+
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入 OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- 
+    ====== 第一步：引入 GLTFLoader ====== 
+    这是加载外部 3D 模型 (.gltf / .glb) 必须的库 
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // 1. 场景初始化
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x1a0505, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 8, 38);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        renderer.outputEncoding = THREE.sRGBEncoding; // 加载外部模型时，这通常很重要，保证颜色正确
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 10;
+        controls.maxDistance = 60;
+        controls.maxPolarAngle = Math.PI / 1.6;
+
+        // 2. 材质定义 (用于程序生成的备用结)
+        const redSilkMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xdc143c,
+            emissive: 0x330000,
+            roughness: 0.3,
+            metalness: 0.1,
+            clearcoat: 0.8,
+            clearcoatRoughness: 0.2,
+            reflectivity: 0.5,
+            side: THREE.DoubleSide
+        });
+
+        const goldMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            roughness: 0.3,
+            metalness: 0.9,
+            emissive: 0x443300,
+            emissiveIntensity: 0.2
+        });
+
+        // =========================================================
+        // ====== 教程：程序化生成的中国结 (备用方案) ======
+        // =========================================================
+        function createProceduralKnot(scale = 1) {
+            const knotGroup = new THREE.Group();
+
+            // A. 主结体
+            const geometry = new THREE.TorusKnotGeometry(1.5, 0.4, 150, 20, 4, 3);
+            const mesh = new THREE.Mesh(geometry, redSilkMaterial);
+            mesh.scale.set(1, 1, 0.4); 
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            knotGroup.add(mesh);
+
+            // B. 装饰件
+            const centerGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.2, 32);
+            const centerMesh = new THREE.Mesh(centerGeo, goldMaterial);
+            centerMesh.rotation.x = Math.PI / 2;
+            centerMesh.position.z = 0.25;
+            knotGroup.add(centerMesh);
+            const centerMeshBack = centerMesh.clone();
+            centerMeshBack.position.z = -0.25;
+            knotGroup.add(centerMeshBack);
+
+            const squareGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+            const squareMesh = new THREE.Mesh(squareGeo, new THREE.MeshStandardMaterial({color: 0xffd700, roughness: 0.4}));
+            squareMesh.position.z = 0.35;
+            knotGroup.add(squareMesh);
+
+            // C. 挂绳与流苏
+            const ropeGeo = new THREE.CylinderGeometry(0.05, 0.05, 2, 8);
+            const ropeMesh = new THREE.Mesh(ropeGeo, redSilkMaterial);
+            ropeMesh.position.y = 2.5;
+            knotGroup.add(ropeMesh);
+
+            const loopGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
+            const loopMesh = new THREE.Mesh(loopGeo, redSilkMaterial);
+            loopMesh.position.y = 3.5;
+            knotGroup.add(loopMesh);
+
+            const tasselGroup = new THREE.Group();
+            tasselGroup.position.y = -2.5; 
+            const tasselHeadGeo = new THREE.CylinderGeometry(0.3, 0.4, 0.6, 16);
+            const tasselHead = new THREE.Mesh(tasselHeadGeo, goldMaterial);
+            tasselGroup.add(tasselHead);
+            const threadCount = 20;
+            const threadLength = 4;
+            const threadGeo = new THREE.CylinderGeometry(0.02, 0.02, threadLength, 4);
+            for (let i = 0; i < threadCount; i++) {
+                const thread = new THREE.Mesh(threadGeo, redSilkMaterial);
+                const angle = (i / threadCount) * Math.PI * 2;
+                const radius = 0.2 * Math.random();
+                thread.position.set(Math.cos(angle) * radius, -threadLength / 2 - 0.3, Math.sin(angle) * radius);
+                thread.rotation.set((Math.random() - 0.5) * 0.1, 0, (Math.random() - 0.5) * 0.1);
+                tasselGroup.add(thread);
+            }
+            knotGroup.add(tasselGroup);
+            knotGroup.scale.set(scale, scale, scale);
+            
+            return { group: knotGroup, tassel: tasselGroup }; // 返回流苏对象以便动画
+        }
+
+        // =========================================================
+        // ====== 第二步：加载外部模型的函数 (核心修改) ======
+        // =========================================================
+        
+        // 如果您有真正的模型 URL，请在这里替换
+        // 注意：URL 必须支持跨域访问 (CORS)，或者使用 base64 数据
+        const MODEL_URL = 'path/to/your/chinese_knot.glb'; 
+
+        const loader = new THREE.GLTFLoader();
+
+        function loadRealModel(targetGroup, scale = 1) {
+            // 这里是一个示例加载逻辑
+            /* // 启用以下代码块来加载真实模型：
+            loader.load(
+                MODEL_URL,
+                (gltf) => {
+                    const model = gltf.scene;
+                    
+                    // 调整模型大小和位置
+                    model.scale.set(scale, scale, scale);
+                    // model.position.y = ...; // 如果需要居中
+
+                    // 开启阴影
+                    model.traverse((node) => {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                            // 如果模型太暗，可以在这里强制修改材质，或者增加环境光
+                            // node.material.envMapIntensity = 1.0; 
+                        }
+                    });
+
+                    // 清除原本的程序化模型（如果有）
+                    while(targetGroup.children.length > 0){ 
+                        targetGroup.remove(targetGroup.children[0]); 
+                    }
+                    
+                    targetGroup.add(model);
+                },
+                undefined, // onProgress
+                (error) => {
+                    console.error('模型加载失败:', error);
+                }
+            );
+            */
+            console.log("如需加载真实模型，请取消代码中 loadRealModel 函数内的注释并填入 URL");
+        }
+
+
+        // 4. 创建轮切布局
+        const knots = [];
+        const carouselGroup = new THREE.Group();
+        scene.add(carouselGroup);
+
+        const knotCount = 8;
+        const radius = 12; 
+        const angleStep = (Math.PI * 2) / knotCount;
+
+        for (let i = 0; i < knotCount; i++) {
+            const angle = i * angleStep;
+            
+            // 创建一个容器 Group
+            const knotWrapper = new THREE.Group();
+            
+            // ====== 关键点：这里决定显示什么 ======
+            // 目前默认使用程序生成的结
+            const proceduralData = createProceduralKnot(1.0);
+            knotWrapper.add(proceduralData.group);
+
+            // *** 如果您有真实模型，请取消下面这行的注释 ***
+            // loadRealModel(knotWrapper, 5.0); // 5.0 是假设的缩放比例，需根据您的模型调整
+            
+            // 布局逻辑
+            const x = Math.sin(angle) * radius;
+            const z = Math.cos(angle) * radius;
+            knotWrapper.position.set(x, 0, z);
+            knotWrapper.lookAt(x * 2, 0, z * 2);
+
+            carouselGroup.add(knotWrapper);
+            
+            knots.push({ 
+                mesh: knotWrapper, 
+                baseY: 0,
+                speed: 0.002 + Math.random() * 0.002, 
+                offset: i * 0.5 
+            });
+        }
+
+
+        // 5. 灯光设置
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.SpotLight(0xffeebb, 1.5);
+        mainLight.position.set(0, 30, 0); 
+        mainLight.castShadow = true;
+        mainLight.angle = Math.PI / 3;
+        mainLight.penumbra = 0.5;
+        scene.add(mainLight);
+
+        const sideLight1 = new THREE.PointLight(0xffaa00, 0.8);
+        sideLight1.position.set(20, 10, 20);
+        scene.add(sideLight1);
+        
+        const sideLight2 = new THREE.PointLight(0xffaa00, 0.8);
+        sideLight2.position.set(-20, 10, -20);
+        scene.add(sideLight2);
+        
+        // 粒子系统
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 300;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i = 0; i < particlesCount * 3; i++) posArray[i] = (Math.random() - 0.5) * 40;
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.15, color: 0xffd700, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending
+        });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        // --- 6. 交互逻辑 (手动切) ---
+        
+        let targetRotationY = 0; 
+        let currentKnotIndex = 0;
+
+        function switchKnot(direction) {
+            currentKnotIndex += direction;
+            targetRotationY = -currentKnotIndex * angleStep;
+        }
+
+        document.getElementById('prevBtn').addEventListener('click', () => switchKnot(-1));
+        document.getElementById('nextBtn').addEventListener('click', () => switchKnot(1));
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') switchKnot(-1);
+            if (e.key === 'ArrowRight') switchKnot(1);
+        });
+
+        // 7. 动画循环
+        const clock = new THREE.Clock();
+        document.getElementById('loading').style.opacity = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            carouselGroup.rotation.y += (targetRotationY - carouselGroup.rotation.y) * 0.05;
+
+            knots.forEach(k => {
+                k.mesh.position.y = k.baseY + Math.sin(time * 1.5 + k.offset) * 0.5;
+            });
+
+            particlesMesh.rotation.y = -time * 0.05;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
