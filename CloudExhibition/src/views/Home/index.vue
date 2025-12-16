@@ -3,13 +3,14 @@
     <div class="hero-section">
       <BlurText
         text="心有千千结 云上共此时"
-        :delay="150"
+        :delay="120"
         class-name="title"
-        animate-by="words"
+        animate-by="letters"
         direction="top"
         :threshold="0.1"
         root-margin="0px"
         :step-duration="0.4"
+        :animation-from="{ filter: 'blur(10px)', opacity: 0, y: -150 }"
         @animation-complete="handleAnimationComplete"
       />
       <p class="subtitle">欢迎进入线上结艺殿堂，探寻一根红绳如何编织出千年的祝福、智慧与美</p>
