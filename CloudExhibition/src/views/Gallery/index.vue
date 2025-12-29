@@ -1,149 +1,75 @@
 <template>
   <div class="gallery-page">
-    <h1 class="page-title">展览大厅</h1>
-    <p class="page-description">浏览精美的中国结艺术作品</p>
-
-    <div class="category-list">
-      <div
-        v-for="category in categories"
-        :key="category.id"
-        class="category-item"
-        @click="selectCategory(category.id)"
-        :class="{ active: activeCategory === category.id }"
-      >
-        {{ category.name }}
-      </div>
-    </div>
-
-    <div class="knot-grid">
-      <div
-        v-for="knot in filteredKnots"
-        :key="knot.id"
-        class="knot-card"
-      >
-        <div class="knot-image-placeholder">
-          <span>{{ knot.name }}</span>
+    <div class="sidebar">
+      <img src="@/assets/images/bg/bamboo_slip (1).png" alt="竹简" class="bamboo-slip" />
+      <div class="button-group">
+        <div class="bamboo-button" v-for="index in 4" :key="index">
+          <img src="@/assets/images/bg/galleery_button.png" alt="按钮" />
         </div>
-        <h3 class="knot-name">{{ knot.name }}</h3>
-        <p class="knot-description">{{ knot.description }}</p>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue';
-import { mockCategories } from '@/mock/categories';
-import { mockKnots } from '@/mock/knots';
-
-const categories = ref(mockCategories);
-const knots = ref(mockKnots);
-const activeCategory = ref('art');
-
-const filteredKnots = computed(() => {
-  return knots.value.filter(knot => knot.categoryId === activeCategory.value);
-});
-
-const selectCategory = (categoryId) => {
-  activeCategory.value = categoryId;
-};
-</script>
-
 <style lang="scss" scoped>
-@use '@/styles/variables.scss' as *;
+@import '@/styles/variables.scss';
 
 .gallery-page {
-  max-width: $container-max-width;
-  margin: 0 auto;
-  padding: $spacing-xl $spacing-base;
-}
-
-.page-title {
-  font-size: $font-size-hero;
-  color: $primary-color;
-  text-align: center;
-  margin-bottom: $spacing-sm;
-}
-
-.page-description {
-  font-size: $font-size-lg;
-  color: $text-secondary;
-  text-align: center;
-  margin-bottom: $spacing-xl;
-}
-
-.category-list {
+  min-height: 100vh;
+  background-image: url('@/assets/images/bg/Gallery_background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   display: flex;
-  justify-content: center;
-  gap: $spacing-base;
-  margin-bottom: $spacing-xl;
-  flex-wrap: wrap;
+  overflow-x: hidden;
 }
 
-.category-item {
-  padding: 0.75rem 2rem;
-  background: $bg-secondary;
-  border: 2px solid $border-color;
-  border-radius: $border-radius-base;
+.sidebar {
+  width: auto;
+  height: 100vh;
+  position: fixed;
+  left: -20px;
+  top: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  pointer-events: none;
+  position: relative;
+}
+
+.bamboo-slip {
+  height: 102vh;
+  width: 450px;
+  object-fit: fill;
+  filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.3));
+}
+
+.button-group {
+  position: absolute;
+  left: 96px;
+  top: 53%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4.0rem;
+  pointer-events: auto;
+}
+
+.bamboo-button {
   cursor: pointer;
-  transition: all $duration-base;
-  font-size: $font-size-base;
+  transition: transform 0.3s ease, filter 0.3s ease;
+
+  img {
+    width: 260px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(3px 5px 8px rgba(0, 0, 0, 0.4));
+  }
 
   &:hover {
-    border-color: $primary-color;
-    transform: translateY(-2px);
+    transform: scale(1.08);
+    filter: drop-shadow(4px 6px 10px rgba(0, 0, 0, 0.5));
   }
-
-  &.active {
-    background: $primary-color;
-    color: #fff;
-    border-color: $primary-color;
-  }
-}
-
-.knot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: $spacing-lg;
-}
-
-.knot-card {
-  background: $bg-secondary;
-  border-radius: $border-radius-lg;
-  overflow: hidden;
-  box-shadow: $shadow-sm;
-  transition: all $duration-base;
-  cursor: pointer;
-
-  &:hover {
-    box-shadow: $shadow-base;
-    transform: translateY(-4px);
-  }
-}
-
-.knot-image-placeholder {
-  width: 100%;
-  height: 280px;
-  background: linear-gradient(135deg, $secondary-color 0%, $primary-color 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: $font-size-xxl;
-  font-weight: bold;
-}
-
-.knot-name {
-  padding: $spacing-base;
-  font-size: $font-size-xl;
-  color: $text-primary;
-  margin: 0;
-}
-
-.knot-description {
-  padding: 0 $spacing-base $spacing-base;
-  color: $text-secondary;
-  font-size: $font-size-base;
-  line-height: 1.6;
 }
 </style>
